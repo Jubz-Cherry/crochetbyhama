@@ -1,0 +1,1 @@
+ALTER TYPE "Availability" ADD VALUE 'CONSULT';

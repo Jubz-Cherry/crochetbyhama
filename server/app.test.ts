@@ -1,0 +1,12 @@
+import {test,after,before} from 'node:test';
+import assert from 'node:assert/strict';
+import {app,db} from './app';
+const server=app.listen(0,'127.0.0.1');
+let base='';
+before(async()=>{if(!server.listening)await new Promise<void>(resolve=>server.once('listening',resolve));const address=server.address();if(!address||typeof address==='string')throw new Error('No port');base=`http://127.0.0.1:${address.port}`});
+after(async()=>{await new Promise<void>(resolve=>server.close(()=>resolve()));await db.$disconnect()});
+test('API health responde sem expor cabeçalho de tecnologia',async()=>{const r=await fetch(base+'/api/health');assert.equal(r.status,200);assert.equal(r.headers.get('x-powered-by'),null);assert.deepEqual(await r.json(),{status:'ok'})});
+test('rotas administrativas recusam usuário sem sessão',async()=>{for(const path of ['/products','/settings','/auth/me']){const r=await fetch(base+'/api/v1/admin'+path);assert.equal(r.status,401);assert.equal((await r.json()).error.code,'UNAUTHENTICATED')}});
+test('login de outra origem é bloqueado antes de consultar credenciais',async()=>{const r=await fetch(base+'/api/v1/admin/auth/login',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://evil.example'},body:JSON.stringify({email:'test@example.test',password:'not-used'})});assert.equal(r.status,403)});
+test('entrada inválida de catálogo retorna 400 antes da consulta',async()=>{const r=await fetch(base+'/api/v1/products?pageSize=1000000');assert.equal(r.status,400);assert.equal((await r.json()).error.code,'VALIDATION_ERROR')});
+test('API desconhecida retorna JSON 404',async()=>{const r=await fetch(base+'/api/v1/not-found');assert.equal(r.status,404);assert.equal((await r.json()).error.code,'NOT_FOUND')});

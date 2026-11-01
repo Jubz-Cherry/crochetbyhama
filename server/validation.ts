@@ -1,0 +1,13 @@
+import {z} from 'zod';
+export const slug=z.string().min(1).max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const imageInput=z.object({id:z.string().max(80).optional(),secureUrl:z.url().max(2000),altText:z.string().trim().max(300),sortOrder:z.number().int().min(0).max(20)}).strict();
+export const productInput=z.object({sku:z.string().trim().min(1).max(40),slug,name:z.string().trim().min(1).max(120),collectionId:z.enum(['croche','hama-beads']),category:z.string().trim().max(60).default(''),description:z.string().trim().max(4000),materials:z.string().max(1000),dimensions:z.string().max(1000),careInstructions:z.string().max(1000),priceMode:z.enum(['FIXED','ON_REQUEST']),priceCents:z.number().int().min(0).max(99999999).nullable(),availability:z.enum(['AVAILABLE','RESERVED','MADE_TO_ORDER','SOLD_OUT','CONSULT']),publicationStatus:z.enum(['DRAFT','PUBLISHED','ARCHIVED']),featured:z.boolean(),leadTimeDays:z.number().int().min(1).max(365).nullable(),version:z.number().int().positive(),images:z.array(imageInput).max(8)}).strict().superRefine((p,ctx)=>{
+ if(p.priceMode==='FIXED'&&p.priceCents===null)ctx.addIssue({code:'custom',message:'Informe o preço da peça.',path:['priceCents']});
+ if(p.publicationStatus==='PUBLISHED'&&(!p.description||!p.images.length||p.images.some(i=>!i.altText.trim())))ctx.addIssue({code:'custom',message:'Para publicar, inclua descrição e imagens com texto alternativo.',path:['publicationStatus']});
+ if(new Set(p.images.map(i=>i.secureUrl)).size!==p.images.length)ctx.addIssue({code:'custom',message:'Não repita a mesma imagem.',path:['images']});
+});
+export const settingsInput=z.object({name:z.string().trim().min(1).max(80),instagramUrl:z.string().regex(/^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9._]+\/?$/),about:z.string().max(4000),ordering:z.string().max(4000)}).strict();
+export const loginInput=z.object({email:z.email().transform(v=>v.toLowerCase().trim()),password:z.string().min(1).max(256)}).strict();
+export const queryInput=z.object({page:z.coerce.number().int().min(1).max(100000).default(1),pageSize:z.coerce.number().int().min(1).max(100).default(24),q:z.string().max(120).optional(),collection:z.enum(['croche','hama-beads']).optional(),category:z.string().max(60).optional(),availability:z.enum(['AVAILABLE','RESERVED','MADE_TO_ORDER','SOLD_OUT','CONSULT']).optional()});
+export function validOrigin(origin:string|undefined,allowed:string){return origin===allowed;}
+export function publicProduct<T extends {images:unknown[];createdAt?:Date;updatedAt?:Date;sortOrder?:number;currency?:string}>(p:T){const {createdAt,updatedAt,sortOrder,currency,...safe}=p;return safe;}

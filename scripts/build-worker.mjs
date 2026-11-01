@@ -1,0 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import ts from 'typescript';
+await import('./build.mjs');
+const data={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/data.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,data);
+const d=data.exports;
+const seeds=d.separatePosts(d.upgradeHama(d.currentCatalog(d.initialProducts)));
+const files=fs.readdirSync('dist');fs.mkdirSync('dist/client',{recursive:true});
+for(const file of files)fs.renameSync(path.join('dist',file),path.join('dist/client',file));
+const assetPaths=[];
+function walk(dir){for(const name of fs.readdirSync(dir)){const p=path.join(dir,name);if(fs.statSync(p).isDirectory())walk(p);else assetPaths.push('/'+path.relative('dist/client',p).replaceAll('\\','/'));}}walk('dist/client');
+fs.mkdirSync('dist/server',{recursive:true});
+fs.writeFileSync('dist/server/generated.mjs',`export const seedProducts=${JSON.stringify(seeds)};export const seedSettings=${JSON.stringify(d.defaultSettings)};export const indexHtml=${JSON.stringify(fs.readFileSync('dist/client/index.html','utf8'))};export const assetPaths=${JSON.stringify(assetPaths)};`);
+fs.copyFileSync('worker/index.mjs','dist/server/index.js');
+fs.mkdirSync('dist/.openai',{recursive:true});if(fs.existsSync('.openai/hosting.json'))fs.copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');fs.cpSync('drizzle','dist/.openai/drizzle',{recursive:true});
+fs.writeFileSync('dist/server/wrangler.json',JSON.stringify({name:'jubis-manual-catalog',main:'index.js',compatibility_date:'2026-04-01',assets:{directory:'../client',binding:'ASSETS',run_worker_first:true},d1_databases:[{binding:'DB',database_name:'DB',database_id:'00000000-0000-0000-0000-000000000000'}],r2_buckets:[{binding:'BUCKET',bucket_name:'BUCKET'}]},null,2));
+console.log('Worker, catálogo inicial e fotos preparados.');
+

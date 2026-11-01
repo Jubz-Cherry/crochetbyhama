@@ -1,0 +1,107 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum Availability {
+ AVAILABLE
+ RESERVED
+ MADE_TO_ORDER
+ SOLD_OUT
+ CONSULT
+}
+enum PublicationStatus {
+ DRAFT
+ PUBLISHED
+ ARCHIVED
+}
+enum PriceMode {
+ FIXED
+ ON_REQUEST
+}
+model Collection {
+ id String @id
+ name String
+ slug String @unique
+ description String @default("")
+ accentColor String
+ sortOrder Int @default(0)
+ products Product[]
+}
+model Product {
+ id String @id @default(uuid())
+ sku String @unique
+ slug String @unique
+ name String
+ collectionId String
+ collection Collection @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+ category String @default("")
+ description String @default("")
+ materials String @default("")
+ dimensions String @default("")
+ careInstructions String @default("")
+ priceMode PriceMode @default(ON_REQUEST)
+ priceCents Int?
+ currency String @default("BRL")
+ availability Availability @default(AVAILABLE)
+ publicationStatus PublicationStatus @default(DRAFT)
+ leadTimeDays Int?
+ featured Boolean @default(false)
+ sortOrder Int @default(0)
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ images ProductImage[]
+ @@index([publicationStatus, collectionId, availability])
+}
+model ProductImage {
+ id String @id @default(uuid())
+ productId String
+ product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+ cloudinaryPublicId String @unique
+ secureUrl String
+ altText String
+ width Int?
+ height Int?
+ sortOrder Int @default(0)
+}
+model AdminUser {
+ id String @id @default(uuid())
+ email String @unique
+ passwordHash String
+ active Boolean @default(true)
+ role String @default("OWNER")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ sessions Session[]
+ auditLogs AuditLog[]
+}
+model Session {
+ id String @id @default(uuid())
+ adminUserId String
+ adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+ tokenHash String @unique
+ csrfToken String
+ expiresAt DateTime
+ revokedAt DateTime?
+ @@index([expiresAt])
+}
+model SiteSettings {
+ id Int @id @default(1)
+ name String @default("Jubis")
+ instagramUrl String @default("https://www.instagram.com/jubisby/")
+ about String @default("")
+ ordering String @default("")
+}
+model AuditLog {
+ id String @id @default(uuid())
+ adminUserId String
+ adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+ action String
+ entityType String
+ entityId String
+ createdAt DateTime @default(now())
+ @@index([createdAt])
+}
